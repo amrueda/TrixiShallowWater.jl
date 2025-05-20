@@ -125,7 +125,7 @@ Trixi.finalize_callback(limiter!::SubcellLimiterRandomIDPCorrection, semi) = not
 
         # All diagonal entries of `derivative_split` are zero. Thus, we can skip
         # the computation of the diagonal terms. In addition, we use the symmetry
-        # of `volume_flux_cons` and `volume_flux_noncons` to save half of the possible two-point flux
+        # of `volume_flux_cons` and skew-symmetry of `volume_flux_noncons` to save half of the possible two-point flux
         # computations.
         for ii in (i + 1):nnodes(dg)
             u_node_ii = Trixi.get_node_vars(u, equations, dg, ii, j, element)
@@ -144,7 +144,7 @@ Trixi.finalize_callback(limiter!::SubcellLimiterRandomIDPCorrection, semi) = not
                                                  flux1_noncons,
                                                  equations, dg, noncons, i, j)
                 Trixi.multiply_add_to_node_vars!(flux_noncons_temp,
-                                                 0.5f0 * derivative_split[ii, i],
+                                                 -0.5f0 * derivative_split[ii, i],
                                                  flux1_noncons,
                                                  equations, dg, noncons, ii, j)
             end
@@ -198,14 +198,12 @@ Trixi.finalize_callback(limiter!::SubcellLimiterRandomIDPCorrection, semi) = not
         u_0 = Trixi.get_node_vars(u, equations, dg, 1, j, element)
         u_N = Trixi.get_node_vars(u, equations, dg, nnodes(dg), j, element)
         for noncons in 1:Trixi.n_nonconservative_terms(equations)
-            phi_loc = volume_flux_noncons(u_N, 1, equations, Trixi.NonConservativeLocal(),
-                                          noncons)
             phi_skew = volume_flux_noncons(u_0, u_N, 1, equations,
                                            Trixi.NonConservativeSymmetric(), noncons)
 
-            Trixi.set_node_vars!(fhat1_R,
-                                 phi_loc .* phi_skew, # The factor of 2 is missing cause Trixi multiplies all the non-cons terms with 0.5
-                                 equations, dg, nnodes(dg), j)
+            for v in eachvariable(equations)
+                fhat1_R[v, nnodes(dg), j] -= phi[v, noncons, nnodes(dg), j] * phi_skew[v] # The factor of 2 is missing cause Trixi multiplies all the non-cons terms with 0.5
+            end
         end
     end
 
@@ -232,7 +230,7 @@ Trixi.finalize_callback(limiter!::SubcellLimiterRandomIDPCorrection, semi) = not
                                                  flux2_noncons,
                                                  equations, dg, noncons, i, j)
                 Trixi.multiply_add_to_node_vars!(flux_noncons_temp,
-                                                 0.5 * derivative_split[jj, j],
+                                                 -0.5 * derivative_split[jj, j],
                                                  flux2_noncons,
                                                  equations, dg, noncons, i, jj)
             end
@@ -286,14 +284,12 @@ Trixi.finalize_callback(limiter!::SubcellLimiterRandomIDPCorrection, semi) = not
         u_0 = Trixi.get_node_vars(u, equations, dg, i, 1, element)
         u_N = Trixi.get_node_vars(u, equations, dg, i, nnodes(dg), element)
         for noncons in 1:Trixi.n_nonconservative_terms(equations)
-            phi_loc = volume_flux_noncons(u_N, 2, equations, Trixi.NonConservativeLocal(),
-                                          noncons)
             phi_skew = volume_flux_noncons(u_0, u_N, 2, equations,
                                            Trixi.NonConservativeSymmetric(), noncons)
 
-            Trixi.set_node_vars!(fhat2_R,
-                                 phi_loc .* phi_skew, # The factor of 2 is missing cause Trixi multiplies all the non-cons terms with 0.5
-                                 equations, dg, i, nnodes(dg))
+            for v in eachvariable(equations)
+                fhat2_R[v, i, nnodes(dg)] -= phi[v, noncons, i, nnodes(dg)] * phi_skew[v] # The factor of 2 is missing cause Trixi multiplies all the non-cons terms with 0.5
+            end
         end
     end
 
