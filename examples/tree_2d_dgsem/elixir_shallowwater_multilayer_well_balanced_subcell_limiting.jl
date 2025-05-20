@@ -60,13 +60,16 @@ function (limiter::SubcellLimiterIDP)(u::AbstractArray{<:Any, 4}, semi, dg::DGSE
                                       kwargs...)
 
     # Calculate alpha1 and alpha2
-    @unpack alpha1, alpha2 = limiter.cache.subcell_limiter_coefficients
+    @unpack alpha, alpha1, alpha2 = limiter.cache.subcell_limiter_coefficients
     Trixi.@threaded for element in eachelement(dg, semi.cache)
+        for j in eachnode(dg), i in 1:nnodes(dg)
+            alpha[i, j, element] = rand()
+        end
         for j in eachnode(dg), i in 2:nnodes(dg)
-            alpha1[i, j, element] = rand()
+            alpha1[i, j, element] = max(alpha[i - 1, j, element], alpha[i, j, element])
         end
         for j in 2:nnodes(dg), i in eachnode(dg)
-            alpha2[i, j, element] = rand()
+            alpha2[i, j, element] = max(alpha[i, j - 1, element], alpha[i, j, element])
         end
         alpha1[1, :, element] .= zero(eltype(alpha1))
         alpha1[nnodes(dg) + 1, :, element] .= zero(eltype(alpha1))
@@ -438,7 +441,7 @@ stepsize_callback = StepsizeCallback(cfl = 1.0)
 
 alive_callback = AliveCallback(analysis_interval = analysis_interval)
 
-save_solution = SaveSolutionCallback(interval = 1000,
+save_solution = SaveSolutionCallback(interval = 10,
                                      save_initial_solution = true,
                                      save_final_solution = true)
 
