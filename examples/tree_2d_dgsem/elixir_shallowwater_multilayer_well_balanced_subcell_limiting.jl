@@ -402,7 +402,10 @@ initial_condition = initial_condition_well_balanced
 
 polydeg = 3
 volume_flux = (flux_ersing_etal, TrixiShallowWater.flux_nonconservative_ersing_etal)
-surface_flux = (flux_ersing_etal, TrixiShallowWater.flux_nonconservative_ersing_etal)
+#surface_flux = (flux_ersing_etal, TrixiShallowWater.flux_nonconservative_ersing_etal)
+surface_flux = (FluxHydrostaticReconstruction(FluxPlusDissipation(flux_ersing_etal, DissipationLocalLaxFriedrichs()), hydrostatic_reconstruction_ersing_etal), 
+                FluxHydrostaticReconstruction(flux_nonconservative_ersing_etal, hydrostatic_reconstruction_ersing_etal))
+
 basis = LobattoLegendreBasis(polydeg)
 limiter_idp = SubcellLimiterIDP(equations, basis;
                                 positivity_variables_cons = ["h1"],)
@@ -437,11 +440,11 @@ analysis_callback = AnalysisCallback(semi, interval = analysis_interval,
                                      extra_analysis_integrals = (lake_at_rest_error,),
                                      analysis_polydeg = polydeg)
 
-stepsize_callback = StepsizeCallback(cfl = 1.0)
+stepsize_callback = StepsizeCallback(cfl = 0.5)
 
 alive_callback = AliveCallback(analysis_interval = analysis_interval)
 
-save_solution = SaveSolutionCallback(interval = 10,
+save_solution = SaveSolutionCallback(interval = 5,
                                      save_initial_solution = true,
                                      save_final_solution = true)
 
