@@ -39,7 +39,8 @@ using TrixiShallowWater
     # and saved in in `flux_temp`.
 
     # Split form volume flux in orientation 1: x direction
-    # First left to right
+    
+    # First left to right:
     flux_temp .= zero(eltype(flux_temp))
     flux_noncons_temp .= zero(eltype(flux_noncons_temp))
 
@@ -144,9 +145,9 @@ using TrixiShallowWater
         for ii in (i - 1):-1:1
             u_node_ii = Trixi.get_node_vars(u, equations, dg, ii, j, element)
             flux1 = volume_flux_cons(u_node, u_node_ii, 1, equations)
-            Trixi.multiply_add_to_node_vars!(flux_temp, derivative_split[i, ii], flux1,
+            Trixi.multiply_add_to_node_vars!(flux_temp, -derivative_split[i, ii], flux1,
                                              equations, dg, i, j)
-            Trixi.multiply_add_to_node_vars!(flux_temp, derivative_split[ii, i], flux1,
+            Trixi.multiply_add_to_node_vars!(flux_temp, -derivative_split[ii, i], flux1,
                                              equations, dg, ii, j)
             for noncons in 1:Trixi.n_nonconservative_terms(equations)
                 # We multiply by 0.5 because that is done in other parts of Trixi
@@ -154,11 +155,11 @@ using TrixiShallowWater
                                                     Trixi.NonConservativeSymmetric(),
                                                     noncons)
                 Trixi.multiply_add_to_node_vars!(flux_noncons_temp,
-                                                 0.5f0 * derivative_split[i, ii],
+                                                 -0.5f0 * derivative_split[i, ii],
                                                  flux1_noncons,
                                                  equations, dg, noncons, i, j)
                 Trixi.multiply_add_to_node_vars!(flux_noncons_temp,
-                                                 -0.5f0 * derivative_split[ii, i],
+                                                 0.5f0 * derivative_split[ii, i],
                                                  flux1_noncons,
                                                  equations, dg, noncons, ii, j)
             end
@@ -176,8 +177,8 @@ using TrixiShallowWater
         for v in eachvariable(equations)
             value = fhat_temp[v, i, j] + weights[i] * flux_temp[v, i, j]
             fhat_temp[v, i - 1, j] = value
-            fhat1_L[v, i - 1, j] += value
-            fhat1_R[v, i - 1, j] += value
+            fhat1_L[v, i, j] += value
+            fhat1_R[v, i, j] += value
         end
         # Nonconservative part
         for noncons in 1:Trixi.n_nonconservative_terms(equations),
@@ -187,13 +188,12 @@ using TrixiShallowWater
                     weights[i] * flux_noncons_temp[v, noncons, i, j]
             fhat_noncons_temp[v, noncons, i - 1, j] = value
 
-            fhat1_R[v, i - 1, j] = fhat1_R[v, i - 1, j] + phi[v, noncons, i, j] * value
-            fhat1_L[v, i - 1, j] = fhat1_L[v, i - 1, j] +
-                                   phi[v, noncons, i - 1, j] * value
+            fhat1_R[v, i, j] += phi[v, noncons, i, j] * value
+            fhat1_L[v, i, j] += phi[v, noncons, i - 1, j] * value
         end
     end
 
-    # New: shift the term Gamma_{(N,N-1)} to correct the flux-diff formula for skew-symmetric fluxes!
+    # New: shift the term Gamma_{(1,2)} to correct the flux-diff formula for skew-symmetric fluxes!
     for j in nnodes(dg):-1:1
         u_0 = Trixi.get_node_vars(u, equations, dg, 1, j, element)
         u_N = Trixi.get_node_vars(u, equations, dg, nnodes(dg), j, element)
@@ -309,9 +309,9 @@ using TrixiShallowWater
         for jj in (j - 1):-1:1
             u_node_jj = Trixi.get_node_vars(u, equations, dg, i, jj, element)
             flux2 = volume_flux_cons(u_node, u_node_jj, 2, equations)
-            Trixi.multiply_add_to_node_vars!(flux_temp, derivative_split[j, jj], flux2,
+            Trixi.multiply_add_to_node_vars!(flux_temp, -derivative_split[j, jj], flux2,
                                              equations, dg, i, j)
-            Trixi.multiply_add_to_node_vars!(flux_temp, derivative_split[jj, j], flux2,
+            Trixi.multiply_add_to_node_vars!(flux_temp, -derivative_split[jj, j], flux2,
                                              equations, dg, i, jj)
             for noncons in 1:Trixi.n_nonconservative_terms(equations)
                 # We multiply by 0.5 because that is done in other parts of Trixi
@@ -319,11 +319,11 @@ using TrixiShallowWater
                                                     Trixi.NonConservativeSymmetric(),
                                                     noncons)
                 Trixi.multiply_add_to_node_vars!(flux_noncons_temp,
-                                                 0.5 * derivative_split[j, jj],
+                                                 -0.5 * derivative_split[j, jj],
                                                  flux2_noncons,
                                                  equations, dg, noncons, i, j)
                 Trixi.multiply_add_to_node_vars!(flux_noncons_temp,
-                                                 -0.5 * derivative_split[jj, j],
+                                                 0.5 * derivative_split[jj, j],
                                                  flux2_noncons,
                                                  equations, dg, noncons, i, jj)
             end
@@ -341,8 +341,8 @@ using TrixiShallowWater
         for v in eachvariable(equations)
             value = fhat_temp[v, i, j] + weights[j] * flux_temp[v, i, j]
             fhat_temp[v, i, j - 1] = value
-            fhat2_L[v, i, j - 1] += value
-            fhat2_R[v, i, j - 1] += value
+            fhat2_L[v, i, j] += value
+            fhat2_R[v, i, j] += value
         end
         # Nonconservative part
         for noncons in 1:Trixi.n_nonconservative_terms(equations),
@@ -352,9 +352,8 @@ using TrixiShallowWater
                     weights[j] * flux_noncons_temp[v, noncons, i, j]
             fhat_noncons_temp[v, noncons, i, j - 1] = value
 
-            fhat2_R[v, i, j - 1] = fhat2_R[v, i, j - 1] + phi[v, noncons, i, j] * value
-            fhat2_L[v, i, j - 1] = fhat2_L[v, i, j - 1] +
-                                   phi[v, noncons, i, j - 1] * value
+            fhat2_R[v, i, j] += phi[v, noncons, i, j] * value
+            fhat2_L[v, i, j] += phi[v, noncons, i, j - 1] * value
         end
     end
 
@@ -511,7 +510,7 @@ analysis_interval = 100
 analysis_callback = AnalysisCallback(semi, interval = analysis_interval,
                                      analysis_polydeg = polydeg)
 
-stepsize_callback = StepsizeCallback(cfl = 0.5)
+stepsize_callback = StepsizeCallback(cfl = 1.0)
 
 alive_callback = AliveCallback(analysis_interval = analysis_interval)
 
